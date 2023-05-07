@@ -3,6 +3,7 @@ import datetime
 import csv
 import requests
 import git
+from bs4 import BeautifulSoup
 
 # Get Github token
 github_token = os.getenv('GITHUB_TOKEN')
@@ -34,14 +35,19 @@ while endpoint:
     data = response.json()
 
     for article in data['articles']:
-        title = '<h1>' + article['title'] + '</h1>'
-        filename = '{id}.html'.format(id=article['id'])
+        title = article['title']
+        soup = BeautifulSoup(article['body'], 'html.parser')
+        h1_tag = soup.find('h1')
+        if h1_tag:
+            title = h1_tag.text.strip()
+
+        filename = '{title}.html'.format(title=title)
         filepath = os.path.join(backup_path, filename)
         with open(filepath, mode='w', encoding='utf-8') as f:
-            f.write(title + '\n' + article['body'])
-        print('{title} copied!'.format(title=article['title']))
+            f.write(article['body'])
+        print('{title} copied!'.format(title=title))
 
-        log.append((filename, article['title'], article['author_id']))
+        log.append((filename, title, article['author_id']))
 
     endpoint = data['next_page']
 

@@ -62,46 +62,36 @@ jobs:
         env:
           TZ: Asia/Ho_Chi_Minh
         run: |
-          before_dir="backup/$(date --date=yesterday +%Y-%m-%d)"
-          after_dir="backup/$(date +%Y-%m-%d)"
-
-          # Check diff and post comment
-          if [ -d "$before_dir" ]; then
-            echo "Checking diff for files in $before_dir"
-            
+          # Get the hash of the previous commit
+          previous_commit=$(git rev-parse HEAD^)
+          
+          for filename in $(find . -name '*.html'); do
             # Check for deleted files
-            for filename in $(find "$before_dir" -name '*.html'); do
-              if [ ! -f "$filename" ]; then
-                echo "$filename was deleted!"
-                curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                  -H "Accept: application/vnd.github.v3+json" \
-                  https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
-                  -d "{ \"body\": \"[HTML Diff Check] The support article file \`$filename\` has been deleted.\" }"
-              fi
-            done
-
-            # Check for renamed files
-            for filename in $(find "$before_dir" -name '*.html'); do
-              new_filename=$(git diff-tree -r --name-only --find-renames  "${{ github.sha }}^..${{ github.sha }}" -- "$filename")
-              if [ -f "$new_filename" ] && [ "$filename" != "$new_filename" ]; then
-                echo "$filename was renamed to $new_filename!"
-                curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                  -H "Accept: application/vnd.github.v3+json" \
-                  https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
-                  -d "{ \"body\": \"[HTML Diff Check] The support article file \`$filename\` has been renamed to \`$new_filename\`.\" }"
-              fi
-            done
+            if [ ! -f "$filename" ]; then
+              echo "$filename was deleted!"
+              curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
+                -d "{ \"body\": \"[HTML Diff Check] The support article file \`$filename\` has been deleted in this commit.\" }"
+            fi
             
+            # Check for renamed files
+            new_filename=$(git diff --no-index --name-only "$filename" "$previous_commit:$filename")
+            if [ -n "$new_filename" ] && [ "$filename" != "$new_filename" ]; then
+              echo "$filename was renamed to $new_filename!"
+              curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
+                -d "{ \"body\": \"[HTML Diff Check] The support article file \`$filename\` has been renamed to \`$new_filename\` in this commit.\" }"
+            fi
+
             # Check for modified files
-            for filename in $(find "$before_dir" -name '*.html'); do
-              echo "Checking diff for $filename"
-              result=$(git diff "$before_dir" "$after_dir" --word-diff=porcelain -- "$filename" | grep -E '^\+[^\+]|^\-[^\-]')
-              if [ "$result" != "" ]; then
-                echo "$result"
-                curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                  -H "Accept: application/vnd.github.v3+json" \
-                  https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
-                  -d "{ \"body\": \"[HTML Diff Check] HTML diff detected in \`$filename\`.\\\n\\\n\`\`\`$result\`\`\`\" }"
-              fi
-            done
-          fi
+            result=$(git diff --no-index --word-diff=porcelain "$filename" "$previous_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]')
+            if [ "$result" != "" ]; then
+              echo "$result"
+              curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
+                -d "{ \"body\": \"[HTML Diff Check] HTML diff detected in \`$filename\`.\\\n\\\n\`\`\`$result\`\`\`\" }"
+            fi
+          done

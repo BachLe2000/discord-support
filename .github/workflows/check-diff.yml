@@ -47,9 +47,9 @@ jobs:
             git add .
             git commit -m "Backup update for $(date +%Y-%m-%d)"
             git push origin main
-            echo "::set-output name=backup_updated::true"
+            echo "backup_updated=true" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=backup_updated::false"
+            echo "backup_updated=false" >> $GITHUB_OUTPUT
           fi
 
   check-diff:

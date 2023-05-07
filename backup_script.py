@@ -52,10 +52,16 @@ with open(os.path.join(backup_path, '_log.csv'), mode='wt', encoding='utf-8') as
         writer.writerow(article)
 
 # Rename files based on article titles
+MAX_PATH_LENGTH = 255
 for filename in os.listdir(backup_path):
     if filename.endswith('.html'):
         with open(os.path.join(backup_path, filename), mode='r', encoding='utf-8') as f:
             title = f.readline().strip().lstrip('<h1>').rstrip('</h1>').strip()
+            
+            # Truncate filename if it exceeds maximum file path length
+            if len(title) > MAX_PATH_LENGTH:
+                title = title[:MAX_PATH_LENGTH-len('.html')]
+
             new_filename = title.replace('/', '-').replace('\\', '-').replace(':', '-').replace('*', '-').replace('?', '-').replace('"', '-').replace('<', '-').replace('>', '-').replace('|', '-') + '.html'
             os.rename(os.path.join(backup_path, filename), os.path.join(backup_path, new_filename))
             print('{old_filename} renamed to {new_filename}'.format(old_filename=filename, new_filename=new_filename))

@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests git-python
+          pip install requests git-python beautifulsoup4
 
 
       - name: Configure Git user identity

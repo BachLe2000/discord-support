@@ -35,19 +35,14 @@ while endpoint:
     data = response.json()
 
     for article in data['articles']:
-        title = article['title']
-        soup = BeautifulSoup(article['body'], 'html.parser')
-        h1_tag = soup.find('h1')
-        if h1_tag:
-            title = h1_tag.text.strip()
-
-        filename = '{title}.html'.format(title=title)
+        article_id = article['id']
+        filename = '{article_id}.html'.format(article_id=article_id)
         filepath = os.path.join(backup_path, filename)
         with open(filepath, mode='w', encoding='utf-8') as f:
             f.write(article['body'])
-        print('{title} copied!'.format(title=title))
+        print('{filename} copied!'.format(filename=filename))
 
-        log.append((filename, title, article['author_id']))
+        log.append((filename, article['title'], article['author_id']))
 
     endpoint = data['next_page']
 
@@ -56,6 +51,18 @@ with open(os.path.join(backup_path, '_log.csv'), mode='wt', encoding='utf-8') as
     writer.writerow(('File', 'Title', 'Author ID'))
     for article in log:
         writer.writerow(article)
+
+# Rename files based on article titles
+for filename in os.listdir(backup_path):
+    if filename.endswith('.html'):
+        with open(os.path.join(backup_path, filename), mode='r', encoding='utf-8') as f:
+            content = f.read()
+            soup = BeautifulSoup(content, 'html.parser')
+            title = soup.find('h1')
+            if title is not None:
+                new_filename = title.text.strip().replace('/', '-').replace('\\', '-').replace(':', '-').replace('*', '-').replace('?', '-').replace('"', '-').replace('<', '-').replace('>', '-').replace('|', '-') + '.html'
+                os.rename(os.path.join(backup_path, filename), os.path.join(backup_path, new_filename))
+                print('{old_filename} renamed to {new_filename}'.format(old_filename=filename, new_filename=new_filename))
 
 # Commit changes to repository
 try:

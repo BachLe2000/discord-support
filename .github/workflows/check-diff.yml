@@ -16,22 +16,26 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '3.x'
-        env: 
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests git-python
 
+
+      - name: Configure Git user identity
+        run: |
+          git config --global user.email "<your-email>"
+          git config --global user.name "<your-name>"
+          
+      - name: Run backup script
+        run: |
+          python backup_script.py
+
       - name: Configure Git user identity
         run: |
           git config --global user.name "${GITHUB_ACTOR}"
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-
-      - name: Run backup script
-        run: |
-          python backup_script.py
 
       - name: Commit changes
         run: |

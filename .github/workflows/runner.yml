@@ -1,0 +1,26 @@
+name: Run backup script every minute
+
+on:
+  schedule:
+    - cron: '*/1 * * * *'
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Python 3
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Run backup script
+        run: |
+          python backup_script.py

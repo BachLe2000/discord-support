@@ -2,7 +2,7 @@ name: Check diff of HTML files
 
 on:
   schedule:
-    - cron: '0 * * * *' # Runs every hour on the hour
+    - cron: '*/10 * * * *' # Runs every hour on the hour
   push:
     branches:
       - main

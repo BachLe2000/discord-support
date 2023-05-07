@@ -24,7 +24,7 @@ jobs:
 
       - name: Run backup script
         run: |
-          python <path-to-backup-script>.py
+          python backup_script.py
 
       - name: Configure Git user identity
         run: |

@@ -25,17 +25,12 @@ jobs:
 
       - name: Configure Git user identity
         run: |
-          git config --global user.email "<your-email>"
-          git config --global user.name "<your-name>"
+          git config --global user.name "${GITHUB_ACTOR}"
+          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
           
       - name: Run backup script
         run: |
           python backup_script.py
-
-      - name: Configure Git user identity
-        run: |
-          git config --global user.name "${GITHUB_ACTOR}"
-          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 
       - name: Commit changes
         run: |

@@ -1,0 +1,65 @@
+name: Check diff of HTML files
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  check-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check diff
+        env:
+          TZ: Asia/Ho_Chi_Minh
+        run: |
+          date=$(date +%Y-%m-%d)
+          before_dir="backup/$date"
+          after_dir="backup/$date-new"
+          archive_dir="backup/$date-archive"
+
+          python backup_script.py
+
+          # move current backup dir to archive dir
+          if [ -d "$before_dir" ]; then
+            mv "$before_dir" "$archive_dir"
+          fi
+
+          # move new backup dir to current backup dir
+          if [ -d "$after_dir" ]; then
+            git diff --quiet "$before_dir" "$after_dir"
+            if [ $? -ne 0 ]; then
+              mv "$after_dir" "$before_dir"
+              git add "$before_dir"
+              git commit -m "Backup update for $date"
+              git push origin main
+              echo "::set-output name=backup_updated::true"
+            else
+              rm -rf "$after_dir"
+              echo "::set-output name=backup_updated::false"
+            fi
+          fi
+
+          # Check diff and post comment
+          if [ -d "$before_dir" ]; then
+            echo "Checking diff for files in $before_dir"
+            for filename in $(find "$before_dir" -name '*.html'); do
+              echo "Checking diff for $filename"
+              result=$(git diff "$before_dir" "$after_dir" --word-diff=porcelain -- "$filename" | grep -E '^\+[^\+]|^\-[^\-]')
+              if [ "$result" != "" ]; then
+                echo "$result"
+                curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                  -H "Accept: application/vnd.github.v3+json" \
+                  https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
+                  -d "{ \"body\": \"HTML diff detected in $filename.\\\n\\\n\`\`\`$result\`\`\`\" }"
+              fi
+            done
+          fi

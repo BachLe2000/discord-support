@@ -3,7 +3,6 @@ import datetime
 import csv
 import requests
 import git
-from bs4 import BeautifulSoup
 
 # Get Github token
 github_token = os.getenv('GITHUB_TOKEN')
@@ -57,10 +56,11 @@ for filename in os.listdir(backup_path):
     if filename.endswith('.html'):
         with open(os.path.join(backup_path, filename), mode='r', encoding='utf-8') as f:
             content = f.read()
-            soup = BeautifulSoup(content, 'html.parser')
-            title = soup.find('h1')
-            if title is not None:
-                new_filename = title.text.strip().replace('/', '-').replace('\\', '-').replace(':', '-').replace('*', '-').replace('?', '-').replace('"', '-').replace('<', '-').replace('>', '-').replace('|', '-') + '.html'
+            title_end_idx = content.find('</h1>')
+            if title_end_idx != -1:
+                title_start_idx = content.find('<h1>') + 4
+                title = content[title_start_idx:title_end_idx].strip()
+                new_filename = title.replace('/', '-').replace('\\', '-').replace(':', '-').replace('*', '-').replace('?', '-').replace('"', '-').replace('<', '-').replace('>', '-').replace('|', '-') + '.html'
                 os.rename(os.path.join(backup_path, filename), os.path.join(backup_path, new_filename))
                 print('{old_filename} renamed to {new_filename}'.format(old_filename=filename, new_filename=new_filename))
 

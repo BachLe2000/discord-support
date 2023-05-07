@@ -2,6 +2,7 @@ import os
 import datetime
 import csv
 import requests
+import git
 
 session = requests.Session()
 
@@ -30,7 +31,8 @@ while endpoint:
     for article in data['articles']:
         title = '<h1>' + article['title'] + '</h1>'
         filename = '{id}.html'.format(id=article['id'])
-        with open(os.path.join(backup_path, filename), mode='w', encoding='utf-8') as f:
+        filepath = os.path.join(backup_path, filename)
+        with open(filepath, mode='w', encoding='utf-8') as f:
             f.write(title + '\n' + article['body'])
         print('{title} copied!'.format(title=article['title']))
 
@@ -43,3 +45,9 @@ with open(os.path.join(backup_path, '_log.csv'), mode='wt', encoding='utf-8') as
     writer.writerow(('File', 'Title', 'Author ID'))
     for article in log:
         writer.writerow(article)
+
+# Commit changes to repository
+repo = git.Repo(os.getcwd())
+repo.git.add('.')
+repo.git.commit(m='Backup update for {date}'.format(date=date.strftime('%Y-%m-%d')))
+repo.git.push()

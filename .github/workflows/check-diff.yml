@@ -15,7 +15,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install dependencies
-        run: npm install
+        run: pip i
 
       - name: Check diff
         env:

@@ -4,7 +4,12 @@ import csv
 import requests
 import git
 
+# Get Github token
+github_token = os.getenv('GITHUB_TOKEN')
+
+# Configure Github authentication
 session = requests.Session()
+session.auth = ('', github_token)
 
 # Replace zendesk and language
 # e.g. zendesk = 'https://support.awesomepandas.com'
@@ -47,11 +52,11 @@ with open(os.path.join(backup_path, '_log.csv'), mode='wt', encoding='utf-8') as
         writer.writerow(article)
 
 # Commit changes to repository
-auth_token = os.environ.get('GITHUB_TOKEN')
-session = requests.Session()
-session.auth = ('', auth_token)
-
-repo = git.Repo(os.getcwd())
-repo.git.add('.')
-repo.git.commit(m='Backup update for {date}'.format(date=date.strftime('%Y-%m-%d')))
-repo.git.push()
+try:
+    repo = git.Repo(os.getcwd())
+    repo.git.add('.')
+    repo.git.commit(m='Backup update for {date}'.format(date=date.strftime('%Y-%m-%d')))
+    repo.git.push()
+    print("Changes pushed to Github repository.")
+except Exception as e:
+    print(f"Failed to push changes to Github repository with error: {e}")

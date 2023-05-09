@@ -82,3 +82,10 @@ jobs:
               python -c "import requests;requests.post(f'https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/commits/{os.environ['GITHUB_SHA']}/comments', headers={'Authorization': f'Bearer {os.environ['GITHUB_TOKEN']}','Accept':'application/vnd.github.v3+json'}, json={'body': '[HTML Diff Check] The support article file `$filename` has been added in this commit.'})" 
             fi
           done
+          # Check for added files
+          for filename in $(git diff --name-only "$previous_commit" | grep -E '.*\.html$' | xargs -I'{}' sh -c 'git cat-file -e "$1":{} > /dev/null 2>&1 && echo "{}"' -- {}); do
+            if [ ! -f "$filename" ]; then
+              echo "Added Article: \`$filename\`"
+              python -c "import requests;requests.post(f'https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/commits/{os.environ['GITHUB_SHA']}/comments', headers={'Authorization': f'Bearer {os.environ['GITHUB_TOKEN']}','Accept':'application/vnd.github.v3+json'}, json={'body': '[HTML Diff Check] The support article file `$filename` has been added in this commit.'})" 
+            fi
+          done

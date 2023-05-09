@@ -50,42 +50,36 @@ jobs:
     runs-on: ubuntu-latest
     needs: backup
     steps:
+      # Step 1: Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v2
-        with:
-            fetch-depth: 0
+      # Step 2: Check the difference between the current and previous commits, and post comments
       - name: Check diff and post comments
         run: |
-          # Get the hash of the previous commit
           previous_commit=$(git rev-parse HEAD^)
-          
-          # Check for deleted files
-          for filename in $(git diff --name-only "$previous_commit" | grep -E '^en-us/.*\.html$' | xargs -I'{}' sh -c 'git cat-file -e "$1":{} > /dev/null 2>&1 && echo "{}"' -- {}); do
+          git diff --name-only "$previous_commit" | grep -E '.*\.html$' | xargs -I{} echo {} | while read filename; do
             if [ ! -f "$filename" ]; then
-              echo "Deleted Article: \`$filename\`"
-              python -c "import requests;requests.post(f'https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/commits/{os.environ['GITHUB_SHA']}/comments', headers={'Authorization': f'Bearer {os.environ['GITHUB_TOKEN']}','Accept':'application/vnd.github.v3+json'}, json={'body': '[HTML Diff Check] The support article file `$filename` has been deleted in this commit.'})"
-            fi
-          done
-          # Check for modified files
-          for filename in $(git diff --name-only "$previous_commit" | grep -E '^en-us/.*\.html$' | xargs -I'{}' sh -c 'git cat-file -e "$1":{} > /dev/null 2>&1 && echo "{}"' -- {}); do
-            result=$(git diff --no-index --word-diff=porcelain "$filename" "$previous_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]')
-            if [ "$result" != "" ]; then
-              echo "Modified Article: \`$filename\`"
-              echo "~~~" && echo "$result" && echo "~~~"
-              python -c "import requests;requests.post(f'https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/commits/{os.environ['GITHUB_SHA']}/comments', headers={'Authorization': f'Bearer {os.environ['GITHUB_TOKEN']}','Accept':'application/vnd.github.v3+json'}, json={'body': '[HTML Diff Check] HTML diff detected in `$filename`.\n\n```\n$result\n```'})"
-            fi
-          done
-          # Check for added files
-          for filename in $(git diff --name-only "$previous_commit" | grep -E '^en-us/.*\.html$' | xargs -I'{}' sh -c 'git cat-file -e "$1":{} > /dev/null 2>&1 && echo "{}"' -- {}); do
-            if [ ! -f "$filename" ]; then
-              echo "Added Article: \`$filename\`"
-              python -c "import requests;requests.post(f'https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/commits/{os.environ['GITHUB_SHA']}/comments', headers={'Authorization': f'Bearer {os.environ['GITHUB_TOKEN']}','Accept':'application/vnd.github.v3+json'}, json={'body': '[HTML Diff Check] The support article file `$filename` has been added in this commit.'})" 
-            fi
-          done
-          # Check for added files
-          for filename in $(git diff --name-only "$previous_commit" | grep -E '.*\.html$' | xargs -I'{}' sh -c 'git cat-file -e "$1":{} > /dev/null 2>&1 && echo "{}"' -- {}); do
-            if [ ! -f "$filename" ]; then
-              echo "Added Article: \`$filename\`"
-              python -c "import requests;requests.post(f'https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/commits/{os.environ['GITHUB_SHA']}/comments', headers={'Authorization': f'Bearer {os.environ['GITHUB_TOKEN']}','Accept':'application/vnd.github.v3+json'}, json={'body': '[HTML Diff Check] The support article file `$filename` has been added in this commit.'})" 
+              curl --request POST \
+                --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments \
+                --header "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                --header 'accept: application/vnd.github.v3+json' \
+                --header 'content-type: application/json' \
+                --data '{"body":"[Article Datamine] Deleted Article \`'"$filename"\`."}'
+            elif git diff --no-index --word-diff=porcelain "$filename" "$previous_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]'; then
+              result=$(git diff --no-index --word-diff=porcelain "$filename" "$previous_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]')
+              echo "[HTML Diff Check] HTML diff detected in \`$filename\`." && echo "~~~" && echo "$result" && echo "~~~"
+              curl --request POST \
+                --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments \
+                --header "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                --header 'accept: application/vnd.github.v3+json' \
+                --header 'content-type: application/json' \
+                --data '{"body":"[Article Datamine] Article changed: \`'"$filename"\`.\n\n```\n'"$result"'\n```"}'
+            else
+              curl --request POST \
+                --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments \
+                --header "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                --header 'accept: application/vnd.github.v3+json' \
+                --header 'content-type: application/json' \
+                --data '{"body":"[Article Datamine] New Article: \`'"$filename"\`."}'
             fi
           done

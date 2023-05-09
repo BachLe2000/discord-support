@@ -56,9 +56,8 @@ jobs:
       # Step 2: Check the difference between the current and previous commits, and post comments
       - name: Check diff and post comments
         run: |
-          previous_commit=$(git rev-parse HEAD^)
+          git rev-parse --verify HEAD^ >/dev/null 2>&1 && previous_commit=HEAD^ || previous_commit=$(git rev-list --max-parents=0 HEAD)
           git diff --name-only "$previous_commit" | grep -E '.*\.html$' | xargs -I{} echo {} | while read filename; do
-            if [ ! -f "$filename" ]; then
               curl --request POST \
                 --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments \
                 --header "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \

@@ -59,6 +59,7 @@ jobs:
           response=$(curl --request GET \
                 --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/main)
           latest_commit=$(echo "$response" | jq -r '.sha')
+          echo "Latest commit SHA: $latest_commit"  # Add this line to print the value of $latest_commit
 
       # Step 3: Check the difference between the current and previous commits, and post comments
       - name: Check diff and post comments

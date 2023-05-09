@@ -53,7 +53,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
         with:
-          path: en-us
+            fetch-depth: 0
       - name: Check diff and post comments
         run: |
           # Get the hash of the previous commit

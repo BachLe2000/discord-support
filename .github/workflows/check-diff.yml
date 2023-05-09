@@ -56,30 +56,19 @@ jobs:
       # Step 2: Check the difference between the current and previous commits, and post comments
       - name: Check diff and post comments
         run: |
-          git rev-parse --verify HEAD^ >/dev/null 2>&1 && previous_commit=HEAD^ || previous_commit=$(git rev-list --max-parents=0 HEAD)
-          git diff --name-only "$previous_commit" | grep -E '.*\.html$' | xargs -I{} echo {} | while read filename; do
+          previous_commit=$(git rev-parse HEAD^ 2> /dev/null || git rev-list --max-parents=0 HEAD)
+          git diff --name-only "$previous_commit" | grep -E '\.html$' | while read -r filename; do
             if [ ! -f "$filename" ]; then
-              curl --request POST \
-                --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments \
-                --header "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                --header 'accept: application/vnd.github.v3+json' \
-                --header 'content-type: application/json' \
-                --data '{"body":"[HTML Diff Check] The support article file \`'"$filename"\` has been deleted in this commit."}'
+              message="[HTML Diff Check] The support article file \`$filename\` has been deleted in this commit."
             elif git diff --no-index --word-diff=porcelain "$filename" "$previous_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]'; then
-              result=$(git diff --no-index --word-diff=porcelain "$filename" "$previous_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]')
-              echo "[HTML Diff Check] HTML diff detected in \`$filename\`." && echo "~~~" && echo "$result" && echo "~~~"
-              curl --request POST \
-                --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments \
-                --header "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                --header 'accept: application/vnd.github.v3+json' \
-                --header 'content-type: application/json' \
-                --data '{"body":"[HTML Diff Check] HTML diff detected in \`'"$filename"\`.\n\n```\n'"$result"'\n```"}'
+              message="[HTML Diff Check] HTML diff detected in \`$filename\`.\n\n\`\`\`\n$(git diff --no-index --word-diff=porcelain "$filename" "$previous_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]')\n\`\`\`"
             else
-              curl --request POST \
-                --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments \
-                --header "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                --header 'accept: application/vnd.github.v3+json' \
-                --header 'content-type: application/json' \
-                --data '{"body":"[HTML Diff Check] The support article file \`'"$filename"\` has been added in this commit."}'
+              message="[HTML Diff Check] The support article file \`$filename\` has been added in this commit."
             fi
+            curl --request POST \
+              --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments \
+              --header "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              --header 'accept: application/vnd.github.v3+json' \
+              --header 'content-type: application/json' \
+              --data "{\"body\":\"$message\"}"
           done

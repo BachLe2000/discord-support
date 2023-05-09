@@ -1,5 +1,4 @@
 name: Check diff of HTML files
-
 on:
   schedule:
     - cron: '*/10 * * * *'
@@ -9,10 +8,8 @@ on:
   pull_request:
     branches:
       - main
-
 permissions:
   contents: write
-
 jobs:
   backup:
     if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
@@ -20,18 +17,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-
       - name: Install Python 3
         uses: actions/setup-python@v2
         with:
           python-version: '3.x'
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests git-python beautifulsoup4
-
-
       - name: Configure Git user identity
         run: |
           git config --global user.name "${GITHUB_ACTOR}"
@@ -40,63 +33,38 @@ jobs:
       - name: Run backup script
         run: |
           python backup_script.py
-
       - name: Commit changes
         run: |
+          now=$(date +"%d-%m-%Y %H-%M")
           git diff --quiet
           if [ $? -ne 0 ]; then
             git add .
-            git commit -m "Backup update for $(date +%Y-%m-%d)"
+            git commit -m "Article Datamining - $now"
             git push origin main
             echo "backup_updated=true" >> $GITHUB_OUTPUT
           else
             echo "backup_updated=false" >> $GITHUB_OUTPUT
           fi
-          
   check-diff:
-    needs: backup
     runs-on: ubuntu-latest
+    needs: backup
     steps:
       - uses: actions/checkout@v2
-
-      - name: Check diff
-        env:
-          TZ: Asia/Ho_Chi_Minh
+      - name: Check diff and post comments
         run: |
-          # Get the hash of the previous commit
-          if [ "$(git rev-parse HEAD)" = "$(git rev-list HEAD --max-parents=0)" ]; then
-            # This is the first commit, skip the check
-            exit 0
-          fi
+          if [ "$(git rev-parse HEAD)" = "$(git rev-list HEAD --max-parents=0)" ]; then exit 0; fi
           previous_commit=$(git rev-parse HEAD^)
-          
-          for filename in $(find . -name '*.html'); do
-            # Check for deleted files
-            if [ ! -f "$filename" ]; then
-              echo "$filename was deleted!"
-              curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                -H "Accept: application/vnd.github.v3+json" \
-                https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
-                -d "{ \"body\": \"[HTML Diff Check] The support article file \`$filename\` has been deleted in this commit.\" }"
+          for file in $(git diff --name-only "${previous_commit}" | grep -E "*.html"); do
+            # check for added files
+            if [ ! -f "${file}" ] && [ "$(basename "${file}" .html)" != "$(basename "${file}")" ]; then
+              python -c "import requests;requests.post(f'https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/commits/{os.environ['GITHUB_SHA']}/comments', headers={'Authorization': f'Bearer {os.environ['GITHUB_TOKEN']}','Accept':'application/vnd.github.v3+json'}, json={'body': '[HTML Diff Check] Added file: `{file}` in this commit.'})"
+            # check for deleted files
+            elif [ ! -f "${file}" ]; then
+              python -c "import requests;requests.post(f'https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/commits/{os.environ['GITHUB_SHA']}/comments', headers={'Authorization': f'Bearer {os.environ['GITHUB_TOKEN']}','Accept':'application/vnd.github.v3+json'}, json={'body': '[HTML Diff Check] Deleted file: `{file}` in this commit.'})"
+            else
+              result=$(git diff --no-index --word-diff=porcelain "${file}" "${previous_commit}:${file}" | grep -E '^\+[^\+]|^\-[^\-]')
+              # check for modified files
+              if [ -n "${result}" ]; then
+                python -c "import requests;requests.post(f'https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/commits/{os.environ['GITHUB_SHA']}/comments', headers={'Authorization': f'Bearer {os.environ['GITHUB_TOKEN']}','Accept':'application/vnd.github.v3+json'}, json={'body': f'[HTML Diff Check] Modified file: ```{result}``` in this commit.'})"
+              fi
             fi
-            
-            # Check for renamed files
-            new_filename=$(git diff --no-index --name-only "$filename" "$previous_commit:$filename")
-            if [ -n "$new_filename" ] && [ "$filename" != "$new_filename" ]; then
-              echo "$filename was renamed to $new_filename!"
-              curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                -H "Accept: application/vnd.github.v3+json" \
-                https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
-                -d "{ \"body\": \"[HTML Diff Check] The support article file \`$filename\` has been renamed to \`$new_filename\` in this commit.\" }"
-            fi
-
-            # Check for modified files
-            result=$(git diff --no-index --word-diff=porcelain "$filename" "$previous_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]')
-            if [ "$result" != "" ]; then
-              echo "$result"
-              curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                -H "Accept: application/vnd.github.v3+json" \
-                https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
-                -d "{ \"body\": \"[HTML Diff Check] HTML diff detected in \`$filename\`.\\\n\\\n\`\`\`$result\`\`\`\" }"
-            fi
-          done

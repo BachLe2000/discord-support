@@ -1,7 +1,7 @@
 import os
 import csv
 import requests
-from datetime import date
+from datetime import datetime
 from pathlib import Path
 import git
 
@@ -9,7 +9,7 @@ import git
 def backup_articles(zendesk_url, language):
     """
     Download all the articles from a Zendesk help center in the specified language,
-    and store them as HTML files in a local directory named after today's date and the language.
+    rename and store them as HTML files in a local directory named after the language.
     """
     # Get Github token
     github_token = os.getenv('GITHUB_TOKEN')
@@ -19,7 +19,7 @@ def backup_articles(zendesk_url, language):
     session.auth = ('', github_token)
 
     # Create the backup directory with the right name
-    backup_path = Path(date.today().strftime('%Y-%m-%d'), language.lower())
+    backup_path = Path(language.lower())
     backup_path.mkdir(parents=True, exist_ok=True)
 
     # Retrieve the articles from the help center
@@ -32,7 +32,13 @@ def backup_articles(zendesk_url, language):
         # Save each article to a file
         for article in data['articles']:
             try:
-                filename = f"{article['title']}.html"
+                # Replace characters in title that cause issues
+                bad_chars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
+                title = article['title']
+                for char in bad_chars:
+                    title = title.replace(char, "-")
+
+                filename = f"{title}.html"
                 filepath = backup_path / filename
 
                 # Save the body of the article to a file
@@ -48,7 +54,7 @@ def backup_articles(zendesk_url, language):
 
 def commit_to_github(repo_path):
     """
-    Commit any changes in the specified directory to a Github repository.
+    Commit changes in the specified directory to a Github repository.
     """
     try:
         # Open the repository
@@ -58,7 +64,8 @@ def commit_to_github(repo_path):
         repo.git.add('--all')
 
         # Commit the changes with a message
-        commit_message = f"Backup update for {date.today()}"
+        now = datetime.now().strftime("%d-%m-%Y %H:%M")
+        commit_message = f"Article Datamining - {now}"
         repo.git.commit(m=commit_message)
 
         # Push the changes to Github
@@ -67,7 +74,6 @@ def commit_to_github(repo_path):
         print("Changes pushed to Github repository.")
     except Exception as e:
         print(f"Failed to push changes to Github repository with error: {e}")
-
 
 
 if __name__ == "__main__":

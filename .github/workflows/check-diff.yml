@@ -64,7 +64,7 @@ jobs:
       # Step 3: Check the difference between the current and previous commits, and post comments
       - name: Check diff and post comments
         run: |
-          git diff --name-only main origin/${GITHUB_HEAD_REF} | grep -E '\.html$' | while read -r filename; do
+          git diff --name-only main ${GITHUB_HEAD_REF} | grep -E '\.html$' | while read -r filename; do
             if [ ! -f "$filename" ]; then
               message="[HTML Diff Check] The support article file \`$filename\` has been deleted in this commit."
             elif git diff --no-index --word-diff=porcelain "$filename" "$latest_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]'; then

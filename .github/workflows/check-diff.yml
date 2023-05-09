@@ -58,12 +58,13 @@ jobs:
         run: |
           git rev-parse --verify HEAD^ >/dev/null 2>&1 && previous_commit=HEAD^ || previous_commit=$(git rev-list --max-parents=0 HEAD)
           git diff --name-only "$previous_commit" | grep -E '.*\.html$' | xargs -I{} echo {} | while read filename; do
+            if [ ! -f "$filename" ]; then
               curl --request POST \
                 --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments \
                 --header "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
                 --header 'accept: application/vnd.github.v3+json' \
                 --header 'content-type: application/json' \
-                --data '{"body":"[Article Datamine] Deleted Article \`'"$filename"\`."}'
+                --data '{"body":"[HTML Diff Check] The support article file \`'"$filename"\` has been deleted in this commit."}'
             elif git diff --no-index --word-diff=porcelain "$filename" "$previous_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]'; then
               result=$(git diff --no-index --word-diff=porcelain "$filename" "$previous_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]')
               echo "[HTML Diff Check] HTML diff detected in \`$filename\`." && echo "~~~" && echo "$result" && echo "~~~"
@@ -72,13 +73,13 @@ jobs:
                 --header "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
                 --header 'accept: application/vnd.github.v3+json' \
                 --header 'content-type: application/json' \
-                --data '{"body":"[Article Datamine] Article changed: \`'"$filename"\`.\n\n```\n'"$result"'\n```"}'
+                --data '{"body":"[HTML Diff Check] HTML diff detected in \`'"$filename"\`.\n\n```\n'"$result"'\n```"}'
             else
               curl --request POST \
                 --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments \
                 --header "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
                 --header 'accept: application/vnd.github.v3+json' \
                 --header 'content-type: application/json' \
-                --data '{"body":"[Article Datamine] New Article: \`'"$filename"\`."}'
+                --data '{"body":"[HTML Diff Check] The support article file \`'"$filename"\` has been added in this commit."}'
             fi
           done

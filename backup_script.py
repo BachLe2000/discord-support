@@ -75,7 +75,7 @@ for article in backup_data["articles"]:
         if not os.path.exists(deleted_folder):
             os.makedirs(deleted_folder)
         os.rename(filename, f"{deleted_folder}/{filename}")
-        print(f"Moved {filename} to {deleted_folder}”)
+        print(f"Moved {filename} to {deleted_folder}")
 
 # Save the articles to the backup file
 backup_data["articles"] = articles_data["articles"]

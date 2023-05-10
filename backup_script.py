@@ -7,49 +7,80 @@ import git
 
 
 def backup_articles(zendesk_url, language):
-    """
-    Download all the articles from a Zendesk help center in the specified language,
-    rename and store them as HTML files in a local directory named after the language.
-    """
-    # Get Github token
-    github_token = os.getenv('GITHUB_TOKEN')
+    # Replace characters in title that cause issues
+    bad_chars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
+    title = article['title']
+    for char in bad_chars:
+        title = title.replace(char, "-")
 
-    # Configure Github authentication
-    session = requests.Session()
-    session.auth = ('', github_token)
+    # Create the path for the HTML file
+    filename = f"{title}.html"
+    filepath = f"{language}/{filename}"
 
-    # Create the backup directory with the right name
-    backup_path = Path(language.lower())
-    backup_path.mkdir(parents=True, exist_ok=True)
+    # Save the body of the article to a file
+    with open(filepath, mode='w', encoding='utf-8') as f:
+        f.write(article['body'])
 
-    # Retrieve the articles from the help center
-    endpoint = f"{zendesk_url}/api/v2/help_center/{language}/articles.json"
-    while endpoint:
-        response = session.get(endpoint)
-        response.raise_for_status()
-        data = response.json()
+    print(f"Copied {filename}!”)
 
-        # Save each article to a file
-        for article in data['articles']:
-            try:
-                # Replace characters in title that cause issues
-                bad_chars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
-                title = article['title']
-                for char in bad_chars:
-                    title = title.replace(char, "-")
+# Get Github token
+github_token = os.getenv('GITHUB_TOKEN')
 
-                filename = f"{title}.html"
-                filepath = backup_path / filename
+# Configure Github authentication
+session = requests.Session()
+session.auth = ('', github_token)
 
-                # Save the body of the article to a file
-                with filepath.open(mode='w', encoding='utf-8') as f:
-                    f.write(article['body'])
+# Define the base URL of the Zendesk help center
+zendesk_url = "https://support.discord.com/"
 
-                print(f"Copied {filename}!")
-            except Exception as e:
-                print(f"Failed to save article {article['id']} with error: {e}")
+# Define the language of the articles to download
+language = "en-us"
 
-        endpoint = data.get('next_page')
+# Define the name of the backup file
+backup_filename = "support_articles.json"
+
+# Check if the backup file exists and load it
+if os.path.exists(backup_filename):
+    with open(backup_filename, 'r') as f:
+        backup_data = json.load(f)
+else:
+    backup_data = {"articles": []}
+
+# Retrieve the articles from the help center
+articles_data = {"articles": []}
+endpoint = f"{zendesk_url}/api/v2/help_center/{language}/articles.json"
+while endpoint:
+    response = session.get(endpoint)
+    response.raise_for_status()
+    data = response.json()
+
+    # Append the articles to the list of articles
+    for article in data['articles']:
+        articles_data["articles"].append(article)
+
+    endpoint = data.get('next_page')
+
+# Save the articles to HTML files and create a list of the article titles
+article_titles = []
+for article in articles_data["articles"]:
+    save_to_html(article, language)
+    article_titles.append(article["title"])
+
+# Compare the article titles with the HTML files in the backup and move any missing files to a new "deleted" directory
+for article in backup_data["articles"]:
+    title = article["title"]
+    filename = f"{title}.html"
+    if title not in article_titles and os.path.exists(filename):
+        deleted_folder = f"{language}/deleted"
+        if not os.path.exists(deleted_folder):
+            os.makedirs(deleted_folder)
+        os.rename(filename, f"{deleted_folder}/{filename}")
+        print(f"Moved {filename} to {deleted_folder}”)
+
+# Save the articles to the backup file
+backup_data["articles"] = articles_data["articles"]
+with open(backup_filename, 'w') as f:
+    json.dump(backup_data, f, indent=2)
 
 
 def commit_to_github(repo_path):

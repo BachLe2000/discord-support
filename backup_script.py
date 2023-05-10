@@ -4,6 +4,7 @@ import requests
 from datetime import datetime
 from pathlib import Path
 import git
+import json
 
 
 def backup_articles(zendesk_url, language):

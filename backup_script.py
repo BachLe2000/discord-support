@@ -63,7 +63,7 @@ while endpoint:
 # Save the articles to HTML files and create a list of the article titles
 article_titles = []
 for article in articles_data["articles"]:
-    save_to_html(article, language)
+    backup_articles(article, language)
     article_titles.append(article["title"])
 
 # Compare the article titles with the HTML files in the backup and move any missing files to a new "deleted" directory

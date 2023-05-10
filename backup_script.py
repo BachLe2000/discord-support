@@ -21,7 +21,7 @@ def backup_articles(zendesk_url, language):
     with open(filepath, mode='w', encoding='utf-8') as f:
         f.write(article['body'])
 
-    print(f"Copied {filename}!”)
+    print(f"Copied {filename}!")
 
 # Get Github token
 github_token = os.getenv('GITHUB_TOKEN')

@@ -13,7 +13,6 @@ permissions:
 
 jobs:
   backup:
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -46,36 +45,3 @@ jobs:
           else
             echo "backup_updated=false" >> $GITHUB_OUTPUT
           fi
-  check-diff:
-    runs-on: ubuntu-latest
-    needs: backup
-    steps:
-      # Step 1: Checkout the repository
-      - name: Checkout repository
-        uses: actions/checkout@v2
-      # Step 2: Get the SHA hash of the latest commit
-      - name: Get latest commit
-        run: |
-          response=$(curl --request GET \
-                --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/main)
-          latest_commit=$(echo "$response" | jq -r '.sha')
-          echo "Latest commit SHA: $latest_commit"  # Add this line to print the value of $latest_commit
-
-      # Step 3: Check the difference between the current and previous commits, and post comments
-      - name: Check diff and post comments
-        run: |
-          git diff --name-only main ${GITHUB_HEAD_REF} | grep -E '\.html$' | while read -r filename; do
-            if [ ! -f "$filename" ]; then
-              message="[HTML Diff Check] The support article file \`$filename\` has been deleted in this commit."
-            elif git diff --no-index --word-diff=porcelain "$filename" "$latest_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]'; then
-              message="[HTML Diff Check] HTML diff detected in \`$filename\`.\n\n\`\`\`\n$(git diff --no-index --word-diff=porcelain "$filename" "$latest_commit:$filename" | grep -E '^\+[^\+]|^\-[^\-]')\n\`\`\`"
-            else
-              message="[HTML Diff Check] The support article file \`$filename\` has been added in this commit."
-            fi
-            curl --request POST \
-              --url https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments \
-              --header "authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              --header 'accept: application/vnd.github.v3+json' \
-              --header 'content-type: application/json' \
-              --data "{\"body\":\"$message\"}"
-          done

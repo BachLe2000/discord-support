@@ -27,8 +27,8 @@ jobs:
           pip install requests git-python beautifulsoup4
       - name: Configure Git user identity
         run: |
-          git config --global user.name "${GITHUB_ACTOR}"
-          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           
       - name: Run backup script
         run: |
